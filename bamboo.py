@@ -26,6 +26,23 @@ def chainslice(df, slice_instructions):
 
     return df
 
+
+def find_row_closest(search_row, analog_col, df_haystack):
+    """
+    given row in one df, find closest rows in another df based on analog value of a column
+    :param search_row: #TODO complete docs
+    :param cols_to_match:
+    :param df_haystack:
+    :return: index of found row
+    """
+
+    df_haystack.loc[:, 'centered'] = df_haystack[analog_col] - search_row[analog_col]
+    df_haystack.loc[:, 'error'] = df_haystack['centered'].apply(lambda x: x ** 2)
+    min_i = df_haystack['error'].idxmin()
+
+    return min_i
+
+
 def find_row_match(search_row, cols_to_match, df_haystack, find_single=True):
     """
     given row in one df, find matching rows in another df based on some columns
@@ -75,7 +92,12 @@ def match_dfs(df1, df2, label1, label2, cols_to_match):
 
     for i1, row1 in df1.iterrows():
         row2 = find_row_match(row1, cols_to_match, df2, find_single=True)
-        i2 = row2.index[0]
+        try:
+            i2 = row2.index[0]
+        except AttributeError:
+            if row2 is None:
+                print(row1)
+            continue
 
         df1.loc[i1, df1_col] = i2
         df2.loc[i2, df2_col] = i1
