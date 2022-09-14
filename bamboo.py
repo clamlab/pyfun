@@ -4,6 +4,11 @@ misc functions for wrangling pandas data
 
 import pandas as pd
 
+def convert_dtype(df, col, dtype):
+    df[col] = df[col].astype(dtype)
+
+
+
 def copy_dict_dfs(dict_of_dfs):
     """
     copy dictionary containing dataframes
@@ -35,8 +40,8 @@ def find_row_closest(search_row, analog_col, df_haystack):
     :param df_haystack:
     :return: index of found row
     """
-
-    df_haystack.loc[:, 'centered'] = df_haystack[analog_col] - search_row[analog_col]
+    df_haystack = df_haystack.copy()
+    df_haystack.loc[:, 'centered'] = df_haystack[analog_col] - search_row[analog_col].values[0]
     df_haystack.loc[:, 'error'] = df_haystack['centered'].apply(lambda x: x ** 2)
     min_i = df_haystack['error'].idxmin()
 
@@ -66,7 +71,7 @@ def find_row_match(search_row, cols_to_match, df_haystack, find_single=True):
             print(matched_rows)
             raise ValueError('More than one matching row found')
         else:
-            return matched_rows[0]
+            return matched_rows
     elif len(matched_rows) == 1:
         return matched_rows
 
