@@ -48,10 +48,10 @@ def find_row_closest(search_row, analog_col, df_haystack):
     return min_i
 
 
-def find_row_match(search_row, cols_to_match, df_haystack, find_single=True):
+def find_row_match(search_row, cols_to_match, df_haystack, find_single=True, verbose=True):
     """
     given row in one df, find matching rows in another df based on some columns
-    :param search_row: #TODO complete docs
+    :param search_row: pandas Series corresponding to single row #TODO complete docs
     :param cols_to_match:
     :param df_haystack:
     :return:
@@ -63,7 +63,8 @@ def find_row_match(search_row, cols_to_match, df_haystack, find_single=True):
     matched_rows = chainslice(df_haystack, m)
 
     if len(matched_rows) == 0:
-        print('No matches found')
+        if verbose==True:
+            print('No matches found')
         return None
     elif len(matched_rows) > 1:
         if find_single:
