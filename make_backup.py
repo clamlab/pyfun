@@ -15,8 +15,8 @@ but one issue with these, is how they handle deleted files in source folder
 """
 
 # Set the source and destination paths
-X = 'D:/Data'
-Y = 'Y:/Edmund/Data/Touchscreen_pSWM'
+X = 'D:\\Data'
+Y = 'Y:\\Edmund\\Data\\Touchscreen_pSWM'
 
 
 # Set the retry count and sleep time
@@ -24,12 +24,11 @@ retry_count = 3
 sleep_time = 1
 
 
-def copy_file():
+def copy_file(src_path, dst_path, pbar):
     retry = 0
     while retry < retry_count:
         try:
             shutil.copy2(src_path, dst_path)
-            pbar.update(1)
             return True
         except:
             retry += 1
@@ -42,7 +41,7 @@ def copy_file():
 # Check if X or Y exists, or else exit
 for fd in [X,Y]:
     if not os.path.exists(fd):
-        print(f"Source or destination fikder {fd} does not exist.")
+        print(f"Source or destination folder {fd} does not exist.")
         sys.exit()
 
 # Get the total number of files to be copied
@@ -53,16 +52,21 @@ with tqdm(total=total_files) as pbar:
     # Iterate over all files and subdirectories in X
     for root, dirs, files in os.walk(X):
         # Create the corresponding subdirectories in Y
+        subfolder = os.path.relpath(root, X)
+        
         for dir in dirs:
-            os.makedirs(os.path.join(Y, root.replace(X, ''), dir), exist_ok=True)
+            os.makedirs(os.path.join(Y, subfolder, dir), exist_ok=True)
         # Copy each file to Y, handling conflicts and retrying on connection loss
+        
         for file in files:
             src_path = os.path.join(root, file)
-            dst_path = os.path.join(Y, root.replace(X, ''), file)
+            dst_path = os.path.join(Y, subfolder, file)
 
             # Print the current file being copied (overwrite previous line)
+            pbar.update(1)
             sys.stdout.write(f"\rCopying {file}...")
             sys.stdout.flush()            
+            
             
             # Check if the file already exists in Y
             if os.path.exists(dst_path):
@@ -75,7 +79,7 @@ with tqdm(total=total_files) as pbar:
                 # Compare the sizes
                 if src_size > dst_size: #replace destination file if smaller
 
-                    success = copy_file()
+                    success = copy_file(src_path, dst_path, pbar)
 
                     while not success:
                         print(f"Failed to copy {file} after {retry_count} retries. Skipping...")
@@ -83,12 +87,12 @@ with tqdm(total=total_files) as pbar:
 
                     # Print information about the replaced file
                     print(f"Old file was replaced with new:")
-                    print(f"\t{src_path} - {src_size} bytes, modified {src_mtime}")
-                    print(f"\t{dst_path} - {dst_size} bytes, modified {dst_mtime}")
+                    print(f"\t{os.path.relpath(src_path,X)} - {src_size} bytes, {src_mtime}")
+                    print(f"\t{os.path.relpath(dst_path,Y)} - {dst_size} bytes, {dst_mtime}")
 
 
             else:
-                success = copy_file()
+                success = copy_file(src_path, dst_path, pbar)
 
                 while not success:
                     print(f"Failed to copy {file} after {retry_count} retries. Skipping...")
