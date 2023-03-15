@@ -59,6 +59,11 @@ with tqdm(total=total_files) as pbar:
         for file in files:
             src_path = os.path.join(root, file)
             dst_path = os.path.join(Y, root.replace(X, ''), file)
+
+            # Print the current file being copied (overwrite previous line)
+            sys.stdout.write(f"\rCopying {file}...")
+            sys.stdout.flush()            
+            
             # Check if the file already exists in Y
             if os.path.exists(dst_path):
                 # Get the size and modification time of both files
@@ -88,6 +93,4 @@ with tqdm(total=total_files) as pbar:
                 while not success:
                     print(f"Failed to copy {file} after {retry_count} retries. Skipping...")
                     break
-            # Print the current file being copied (overwrite previous line)
-            sys.stdout.write(f"\rCopying {file}...")
-            sys.stdout.flush()
+
