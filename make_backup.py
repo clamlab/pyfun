@@ -16,8 +16,8 @@ but one issue with these, is how they handle deleted files in source folder
 
 
 # Set the source and destination paths
-X = '/path/to/source/folder'
-Y = '/path/to/destination/folder'
+X = 'D:/Data'
+Y = 'Y:/Edmund/Data/Touchscreen_pSWM'
 
 # Set the retry count and sleep time--how many times to try to copy a file if it fails
 retry_count = 3
@@ -45,7 +45,13 @@ with tqdm(total=total_files) as pbar:
                 dst_size = os.path.getsize(dst_path)
                 dst_mtime = datetime.datetime.fromtimestamp(os.path.getmtime(dst_path))
                 # Compare the sizes and modification times
-                if src_size > dst_size or src_mtime > dst_mtime:
+                if src_size > dst_size:
+                    # Print information about the conflicting files
+                    print(f"Overwriting files:")
+                    print(f"\t{src_path} - {src_size} bytes, modified {src_mtime}")
+                    print(f"\t{dst_path} - {dst_size} bytes, modified {dst_mtime}")
+
+
                     # Retry copying up to retry_count times with a sleep_time delay in between
                     retry = 0
                     while retry < retry_count:
@@ -59,10 +65,7 @@ with tqdm(total=total_files) as pbar:
                             time.sleep(sleep_time)
                             continue
                 else:
-                    # Print information about the conflicting files
-                    print(f"File {file} already exists in {Y} with the same size and modification time:")
-                    print(f"\t{src_path} - {src_size} bytes, modified {src_mtime}")
-                    print(f"\t{dst_path} - {dst_size} bytes, modified {dst_mtime}")
+                    pass
             else:
                 # Retry copying up to retry_count times with a sleep_time delay in between
                 retry = 0
