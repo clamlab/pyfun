@@ -3,6 +3,7 @@ import shutil
 import datetime
 from tqdm import tqdm
 import time
+import sys
 
 """
 EC march 2023
@@ -13,15 +14,36 @@ but one issue with these, is how they handle deleted files in source folder
 (they may attempt to sync destination folder, and also delete the source file). 
 """
 
-
-
 # Set the source and destination paths
 X = 'D:/Data'
 Y = 'Y:/Edmund/Data/Touchscreen_pSWM'
 
-# Set the retry count and sleep time--how many times to try to copy a file if it fails
+
+# Set the retry count and sleep time
 retry_count = 3
-sleep_time = 1 #in seconds, time to wait between re-tries
+sleep_time = 1
+
+
+def copy_file():
+    retry = 0
+    while retry < retry_count:
+        try:
+            shutil.copy2(src_path, dst_path)
+            pbar.update(1)
+            return True
+        except:
+            retry += 1
+            print(f"Connection lost while copying {file}. Retrying ({retry}/{retry_count})...")
+            time.sleep(sleep_time)
+            continue
+    return False
+
+
+# Check if X or Y exists, or else exit
+for fd in [X,Y]:
+    if not os.path.exists(fd):
+        print(f"Source or destination fikder {fd} does not exist.")
+        sys.exit()
 
 # Get the total number of files to be copied
 total_files = sum([len(files) for r, d, files in os.walk(X)])
@@ -44,38 +66,28 @@ with tqdm(total=total_files) as pbar:
                 src_mtime = datetime.datetime.fromtimestamp(os.path.getmtime(src_path))
                 dst_size = os.path.getsize(dst_path)
                 dst_mtime = datetime.datetime.fromtimestamp(os.path.getmtime(dst_path))
-                # Compare the sizes and modification times
-                if src_size > dst_size:
-                    # Print information about the conflicting files
-                    print(f"Overwriting files:")
+
+                # Compare the sizes
+                if src_size > dst_size: #replace destination file if smaller
+
+                    success = copy_file()
+
+                    while not success:
+                        print(f"Failed to copy {file} after {retry_count} retries. Skipping...")
+                        break
+
+                    # Print information about the replaced file
+                    print(f"Old file was replaced with new:")
                     print(f"\t{src_path} - {src_size} bytes, modified {src_mtime}")
                     print(f"\t{dst_path} - {dst_size} bytes, modified {dst_mtime}")
 
 
-                    # Retry copying up to retry_count times with a sleep_time delay in between
-                    retry = 0
-                    while retry < retry_count:
-                        try:
-                            shutil.copy2(src_path, dst_path)
-                            pbar.update(1)
-                            break
-                        except:
-                            retry += 1
-                            print(f"Connection lost while copying {file}. Retrying ({retry}/{retry_count})...")
-                            time.sleep(sleep_time)
-                            continue
-                else:
-                    pass
             else:
-                # Retry copying up to retry_count times with a sleep_time delay in between
-                retry = 0
-                while retry < retry_count:
-                    try:
-                        shutil.copy2(src_path, dst_path)
-                        pbar.update(1)
-                        break
-                    except:
-                        retry += 1
-                        print(f"Connection lost while copying {file}. Retrying ({retry}/{retry_count})...")
-                        time.sleep(sleep_time)
-                        continue
+                success = copy_file()
+
+                while not success:
+                    print(f"Failed to copy {file} after {retry_count} retries. Skipping...")
+                    break
+            # Print the current file being copied (overwrite previous line)
+            sys.stdout.write(f"\rCopying {file}...")
+            sys.stdout.flush()
