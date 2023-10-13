@@ -5,12 +5,40 @@ import pandas as pd
 time_formats_default = {"????-??-??T??_??_??": "%Y-%m-%dT%H_%M_%S",
                         "????-??-??_??-??-??": "%Y-%m-%d_%H-%M-%S",
                         "????_??_??-??_??":    "%Y_%m_%d-%H_%M"}
+
+
+BONSAI_TIMESTAMP_FMT = "%H:%M:%S.%f"
+
 #TODO: account for some time formats being substrings of other time formats
 
 
-import pandas as pd
+
+def calc_dt(pd_t2, pd_t1, output='millisecs'):
+    """
+    takes two pandas timestamps and returns the timedelta (t2 - t1)
+    """
+    if output == 'millisecs':
+        dt = (pd_t2 - pd_t1).total_seconds() * 1000
+    elif output == 'secs':
+        dt = (pd_t2 - pd_t1).total_seconds()
+    else:
+        raise ValueError('Unrecognized output format.')
+
+    return dt
 
 
+def calc_dt_col(df, timestamp_col, dt_col_name, ref_t, drop=True, output='millisecs'):
+    """
+    calculate the difference in time between timestamp values in a df column, and a reference timestamp,
+    using the calc_dt function.
+    TODO: make timestamp format specification more general
+    """
+    df[dt_col_name] = df[timestamp_col].apply(lambda t: calc_dt(t, ref_t, output=output))
+
+    if drop:  # drop timestamp_col
+        df = df.drop(timestamp_col, axis=1)
+
+    return df
 
 def compare_same_date(dt1, dt2):
     """
@@ -32,8 +60,42 @@ def compare_same_date(dt1, dt2):
     else:
         return None
 
+def parse_time(time_str, formats = ["%H:%M:%S.%f", "%H:%M:%S"]):
+    parsed_time = pd.NaT
 
-def search(input_str, output_mode='dt_and_string', time_formats=time_formats_default):
+    for fmt in formats:
+        parsed_time = pd.to_datetime(time_str, format=fmt, errors="coerce")
+        if not pd.isna(parsed_time):
+            break
+
+    if pd.isna(parsed_time):
+        raise ValueError(f"time data '{time_str}' does not match any of the formats: {formats}")
+
+    return parsed_time
+
+
+def parse_time_col(time_series,  formats=["%H:%M:%S.%f", "%H:%M:%S"]):
+    # substitute for pd.to_datetime, specifically because of one observed exception case where
+    # bonsai timestamp was %H:%M:%S without the decimals (likely would be .0000000)
+
+    parsed_time = pd.Series(pd.NaT, index=time_series.index)
+
+    for fmt in formats:
+        # Find the indices of remaining failed conversions
+        failed_indices = pd.isna(parsed_time)
+
+        # If there are no more failed conversions, break the loop
+        if not failed_indices.any():
+            break
+
+        # Attempt to parse the failed conversions using the current format
+        parsed_time[failed_indices] = pd.to_datetime(time_series[failed_indices], format=fmt, errors="coerce")
+
+    return parsed_time
+
+
+
+def search(input_str, output_mode='dt_and_string', time_formats=time_formats_default, verbose=True):
     """
     search within a string, for a matching time string embedded within
 
@@ -65,7 +127,8 @@ def search(input_str, output_mode='dt_and_string', time_formats=time_formats_def
 
 
     if timestr is None:
-        print('No time string found')
+        if verbose==True:
+            print('No time string found')
         return None
     else:
         dt = pd.to_datetime(timestr, format=timefmt)
