@@ -60,6 +60,21 @@ def compare_same_date(dt1, dt2):
     else:
         return None
 
+
+def filter_by_date(data, target_date):
+    """
+    Filter a dictionary with pandas datetime keys
+    to only include entries from a specific date.
+
+    :param data: Dictionary with keys as pandas datetime objects.
+    :param target_date: Desired date string in the format 'YYYY-MM-DD'.
+    :return: Filtered dictionary with only the entries from the target date.
+    """
+    data_dt = {search(key)[1]: value for key, value in data.items()}
+    target_date_obj = pd.to_datetime(target_date)
+    return {key: value for key, value in data_dt.items() if key.date() == target_date_obj.date()}
+
+
 def parse_time(time_str, formats = ["%H:%M:%S.%f", "%H:%M:%S"]):
     parsed_time = pd.NaT
 

@@ -7,6 +7,7 @@ from collections import defaultdict
 
 import pandas as pd
 import numpy as np
+import os
 
 
 def bin_col(df, col_to_bin, n_bins, bin_range=None, bins_from_range=False):
@@ -45,9 +46,6 @@ def bin_col(df, col_to_bin, n_bins, bin_range=None, bins_from_range=False):
 
     return df
 
-
-
-
 def convert_dtype(df, col, dtype):
     df[col] = df[col].astype(dtype)
 
@@ -76,7 +74,11 @@ def concat_df_dicts(df_dict, reset_index=True):
     sorted_keys = sorted(df_dict.keys())
 
     # Concatenate the dataframes in the correct order
-    grand_df = pd.concat([df_dict[key] for key in sorted_keys])
+    list_of_dfs = [df_dict[key] for key in sorted_keys]
+    if len(list_of_dfs) > 0:
+        grand_df = pd.concat(list_of_dfs)
+    else:
+        return pd.DataFrame()
 
     if reset_index:
         grand_df = grand_df.reset_index(drop=True)
@@ -93,7 +95,6 @@ def chainslice(df, slice_instructions):
         df = slice(df, {col: vals}, polarity)
 
     return df
-
 
 def find_row_closest(search_row, analog_col, df_haystack):
     """
@@ -172,6 +173,20 @@ def match_dfs(df1, df2, label1, label2, cols_to_match):
         df1.loc[i1, df1_col] = i2
         df2.loc[i2, df2_col] = i1
 
+def read_csv_or_create(csv_path,colnames):
+    """
+    check if fpath (pointing to csv) exists.
+    if it does, load csv and return
+    if it does not, create csv with colnames, and return df
+    """
+    if os.path.exists(csv_path):
+        print('Existing file loaded')
+        return pd.read_csv(csv_path)
+    else:
+        print(csv_path, 'not found, creating new')
+        df = pd.DataFrame(columns=colnames)
+        df.to_csv(csv_path, index=False)
+        return df
 
 def slice_notnull(df, col):
     return df[df[col].notnull()]
