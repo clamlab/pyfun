@@ -24,10 +24,12 @@ def bin_col(df, col_to_bin, n_bins, bin_range=None, bins_from_range=False):
 
     df = df.copy()  # To avoid modifying the original dataframe
 
+    ''' === this seems unnecessary ===
     # If a bin_range is specified, set values outside of this range to NaN
     if bin_range:
         mask_outside_range = (df[col_to_bin] < bin_range[0]) | (df[col_to_bin] > bin_range[1])
         df.loc[mask_outside_range, col_to_bin] = np.nan
+    '''
 
     # Decide the bin edges
     if bins_from_range and bin_range:
@@ -96,7 +98,7 @@ def chainslice(df, slice_instructions):
 
     return df
 
-def find_row_closest(search_row, analog_col, df_haystack):
+def find_row_closest(search_row, analog_col, df_haystack, direction='bi'):
     """
     given row in one df, find closest rows in another df based on analog value of a column
     :param search_row: #TODO complete docs
@@ -106,7 +108,11 @@ def find_row_closest(search_row, analog_col, df_haystack):
     """
     df_haystack = df_haystack.copy()
     df_haystack.loc[:, 'centered'] = df_haystack[analog_col] - search_row[analog_col].values[0]
-    df_haystack.loc[:, 'error'] = df_haystack['centered'].apply(lambda x: x ** 2)
+    if direction == 'bi':
+        df_haystack.loc[:, 'error'] = df_haystack['centered'].apply(lambda x: x ** 2)
+    elif direction == 'lt':
+        df_haystack.loc[:, 'error'] = df_haystack['centered'].apply(lambda x: x)
+
     min_i = df_haystack['error'].idxmin()
 
     return min_i
