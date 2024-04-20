@@ -1,6 +1,6 @@
 import fnmatch
 import pandas as pd
-
+import datetime
 
 time_formats_default = {"????-??-??T??_??_??": "%Y-%m-%dT%H_%M_%S",
                         "????-??-??_??-??-??": "%Y-%m-%d_%H-%M-%S",
@@ -59,6 +59,24 @@ def compare_same_date(dt1, dt2):
         return date1.strftime('%Y-%m-%d')
     else:
         return None
+
+def date_to_filename(fn, subj_name=None):
+    """
+    add today's date to filename string (fn)
+    the fn already contains full extension e.g. "abc.pdf
+    optionally specify subj name that is inserted
+    """
+    current_date = datetime.datetime.now()
+    formatted_date = current_date.strftime('%m%d%y')
+
+    if subj_name is None:
+        subj_name  = ''
+    else:
+        subj_name += '_'
+
+    fn2 = fn.split('.')[0] + '_' + subj_name + formatted_date + '.' + fn.split('.')[1]
+
+    return fn2
 
 
 def filter_by_date(data, target_date):

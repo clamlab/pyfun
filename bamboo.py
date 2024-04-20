@@ -48,23 +48,14 @@ def bin_col(df, col_to_bin, n_bins, bin_range=None, bins_from_range=False):
 
     return df
 
-def convert_dtype(df, col, dtype):
-    df[col] = df[col].astype(dtype)
+def chainslice(df, slice_instructions):
+    """ perform a series of slicing operations using slice_df
+     slice_instructions: nested list, each element [col, [vals], polarity] """
 
+    for [col, vals, polarity] in slice_instructions:
+        df = slice(df, {col: vals}, polarity)
 
-
-def copy_dict_dfs(dict_of_dfs):
-    """
-    copy dictionary containing dataframes
-    :param dict_of_dfs:
-    :return:
-    """
-    new_dict = {}
-    for k, v in dict_of_dfs.items():
-        new_dict[k] = v.copy()
-
-    return new_dict
-
+    return df
 
 def concat_df_dicts(df_dict, reset_index=True):
     """
@@ -88,15 +79,48 @@ def concat_df_dicts(df_dict, reset_index=True):
     return grand_df
 
 
+def convert_dtype(df, col, dtype):
+    df[col] = df[col].astype(dtype)
 
-def chainslice(df, slice_instructions):
-    """ perform a series of slicing operations using slice_df
-     slice_instructions: nested list, each element [col, [vals], polarity] """
 
-    for [col, vals, polarity] in slice_instructions:
-        df = slice(df, {col: vals}, polarity)
+def copy_dict_dfs(dict_of_dfs):
+    """
+    copy dictionary containing dataframes
+    :param dict_of_dfs:
+    :return:
+    """
+    new_dict = {}
+    for k, v in dict_of_dfs.items():
+        new_dict[k] = v.copy()
 
-    return df
+    return new_dict
+
+def count_null(df, col):
+    """
+    count number / pct of null entries in a column
+    :param col: Column name to count
+    """
+
+    n = len(df)
+    n_null = np.sum(df[col].isnull())
+
+    print(str(n_null), 'NaNs (', str(n_null / n * 100), '%).')
+
+
+
+def euclid(df, xy_col1, xy_col2):
+    """
+    computes euclidean distance between two sets of xy coordinates
+    :param xy_col1: list with pair of column names for [x,y] coordinate
+    :param xy_col2: second pair of column names
+    :return:
+    """
+
+    A = np.array(df[xy_col1]).astype('float')
+    B = np.array(df[xy_col2]).astype('float')
+    C = np.linalg.norm(A-B,axis=1)
+
+    return C
 
 def find_row_closest(search_row, analog_col, df_haystack, direction='bi'):
     """

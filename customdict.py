@@ -50,7 +50,13 @@ def display_dict(dictionary, indent=0):
             print(value)
 
 
+def invert_nested_dict(old_dict):
+    new_dict = {}
 
+    for outer_key, inner_dict in old_dict.items():
+        for inner_key, value in inner_dict.items():
+            if inner_key not in new_dict:
+                new_dict[inner_key] = {}
+            new_dict[inner_key][outer_key] = value
 
-
-
+    return new_dict

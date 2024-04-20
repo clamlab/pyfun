@@ -64,3 +64,30 @@ def get_folder(initial_dir=None, title=''):
     fd_path = tkfiledialog.askdirectory(parent=root, initialdir=initial_dir, title=title)
 
     return fd_path
+
+
+def generate_unique_filename(filename, overwrite=False):
+    """
+    Generates a unique filename by appending a counter before the file extension.
+    If overwrite is True, returns the original filename.
+
+    :param filename: Original filename
+    :param overwrite: Whether to overwrite existing files (default False)
+    :return: Unique filename
+    """
+    if overwrite or not os.path.exists(filename):
+        return filename
+
+    # Split the filename into name and extension
+    name_part, extension = os.path.splitext(filename)
+    counter = 1
+
+    # Generate a new filename by appending a counter before the extension
+    new_filename = f"{name_part}_{counter:02}{extension}"
+
+    # Increment the counter until a unique filename is found
+    while os.path.exists(new_filename):
+        counter += 1
+        new_filename = f"{name_part}_{counter:02}{extension}"
+
+    return new_filename
