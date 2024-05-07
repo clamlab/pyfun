@@ -223,21 +223,32 @@ def slice_notnull(df, col):
 
 
 def slice(df, col_row_vals, polarity='+', print_counts=False):
-    """ slice df by finding matching row values in a given cols
-    col_row_vals: a dict of {colname1: [value1, value2...], -->
-                             colname2: [value3, value4...]}
-        --> finds (colname1 with value1 or value2 or ...) AND  (colname2 with value3 or value4 or ...)
-
-    polarity = + or -, returns matching or nonmatching
-    
-    returns a copy, not a view
     """
+    Slices a pandas DataFrame based on given column values or ranges.
 
+    Parameters:
+        df (pd.DataFrame): The DataFrame to slice.
+        col_row_vals (dict): A dictionary where keys are column names and values are:
+            - a list of values to match, or
+            - a string representing a range in the form '(a,b]', '[a,b)', '[a,b]', or '(a,b)'.
+        polarity (str): '+' to return matching rows, '-' to return non-matching rows.
+        print_counts (bool): If True, prints the value counts of the resulting DataFrame for each column in `col_row_vals`.
+
+    Returns:
+        pd.DataFrame: The resulting DataFrame.
+
+    Raises:
+        ValueError: If the polarity is not '+' or '-'.
+    """
 
     #find the intersecting set
     intersect = df.copy()
     for k, v in col_row_vals.items():
-        intersect = intersect[intersect[k].isin(v)]
+        if isinstance(v, list):
+            intersect = intersect[intersect[k].isin(v)]
+        elif isinstance(v, str): #string that represents numerical interval to slice
+            intersect = slice_col_range(intersect, k, v)
+
 
     if polarity == '+':
         df_small = intersect
@@ -254,10 +265,43 @@ def slice(df, col_row_vals, polarity='+', print_counts=False):
 
     return df_small
 
-def slice_col_range(df, col, val_range):
-    return df[df[col].between(val_range[0], val_range[1])]
 
+def slice_col_range(df, colname, range_str):
+    """
+    Slices a pandas DataFrame based on a column in a given range string.
 
+    Parameters:
+        df (pd.DataFrame): The DataFrame to slice.
+        colname (str): The name of the column to slice.
+        range_str (str): The range string, e.g., '(1,4)' or '[1,4]'.
+
+    Returns:
+        pd.DataFrame: The sliced DataFrame.
+
+    Raises:
+        ValueError: If the range_str is not formatted correctly.
+    """
+
+    # Check the first and last characters for brackets
+    if range_str[0] not in '([' or range_str[-1] not in ')]':
+        raise ValueError("range_str should start with '(' or '[' and end with ')' or ']'.")
+
+    # Determine inclusiveness for the boundaries
+    left_inclusive = range_str[0] == '['
+    right_inclusive = range_str[-1] == ']'
+
+    inclusive = 'both' if left_inclusive and right_inclusive else \
+        'left' if left_inclusive else \
+            'right' if right_inclusive else \
+                'neither'
+
+    # Extract the numeric values
+    try:
+        left_value, right_value = map(float, range_str[1:-1].split(','))
+    except ValueError:
+        raise ValueError("range_str should contain two numeric values separated by a comma.")
+
+    return df[df[colname].between(left_value, right_value, inclusive=inclusive)]
 
 
 def group_datetime_objects_by_date(datetimes):
