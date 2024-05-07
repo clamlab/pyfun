@@ -304,6 +304,87 @@ def slice_col_range(df, colname, range_str):
     return df[df[colname].between(left_value, right_value, inclusive=inclusive)]
 
 
+class SliceLabel:
+    """
+    Utility class for converting slice instructions to labels.
+    """
+    # Class-level attributes
+    _bool2prefix = {True: '', False: '¬'}
+    _sign2prefix = {'+': '', '-': '¬'}
+    _sign2symbol = {'+': '∈', '-': '∉'}
+    _bool_trialflags = ['WMTrial', 'optoTrial']
+
+    @staticmethod
+    def make(slicer):
+        """
+        Go from a set of chainslice instructions to a label for plot/analysis.
+        """
+        label_parts = []
+
+        for s in slicer:
+            if isinstance(s[1], str):  # str representing slice interval for boo.slice_col_range()
+                label_part = SliceLabel._range_to_label(s)
+            elif isinstance(s[1], list):
+                if s[0] == 'TrialType':
+                    label_part = SliceLabel._trialtype_to_label(s)
+                elif s[0] in SliceLabel._bool_trialflags:
+                    label_part = SliceLabel._bool_to_label(s)
+                else:
+                    raise ValueError('unknown slicer')
+            else:
+                raise ValueError('unknown slicer')
+
+            label_parts.append(label_part)
+
+        label_parts = sorted(label_parts, key=lambda x: x.lstrip("¬"))  # sort as if '¬' character is absent
+        return ', '.join(label_parts)
+
+    @staticmethod
+    def _bool_to_label(instr):
+        """
+        Convert single bamboo.chainslice() instruction for bool trial type (WMTrial, optoTrial...) value,
+        to label part.
+        """
+        trial_var = instr[0].replace('Trial', '')  # e.g. 'WMTrial', 'optoTrial'...
+        slice_bool = instr[1:]  # e.g. [[True], '+']
+
+        if slice_bool[0] not in [[True], [False]]:
+            raise ValueError('slice_bool[0] must be either [True] or [False]')
+
+        bool_value = slice_bool[0][0]
+
+        if slice_bool[1] == '-':
+            bool_value = not bool_value
+        elif slice_bool[1] != '+':
+            raise ValueError("slice_bool[1] must be '+' or '-'.")
+
+        return SliceLabel._bool2prefix[bool_value] + trial_var
+
+    @staticmethod
+    def _trialtype_to_label(instr):
+        """
+        Convert single bamboo.chainslice instruction for trial type, to label part.
+        """
+        trialtypes = instr[1]
+
+        if len(trialtypes) == 1:
+            label = trialtypes[0]
+        elif len(trialtypes) > 1:
+            label = "(" + "+".join(trialtypes) + ")"
+        else:
+            raise ValueError('The number of trialtypes should be >= 1.')
+
+        return SliceLabel._sign2prefix[instr[2]] + label
+
+    @staticmethod
+    def _range_to_label(instr):
+        """
+        Convert single bamboo.chainslice instruction which specifies slice interval by str, to
+        label part.
+        """
+        return f"{instr[0]} {SliceLabel._sign2symbol[instr[2]]} {instr[1]}"
+
+
 def group_datetime_objects_by_date(datetimes):
     """
     Group pandas datetime objects by the date (i.e. those on same date will be collected together)
