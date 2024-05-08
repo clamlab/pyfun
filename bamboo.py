@@ -4,10 +4,11 @@ misc functions for wrangling pandas data
 
 import pandas as pd, numpy as np
 from collections import defaultdict
-
-import pandas as pd
-import numpy as np
 import os
+
+from pyfun import string_utils
+from IPython.display import display
+
 
 
 def bin_col(df, col_to_bin, n_bins, bin_range=None, bins_from_range=False):
@@ -383,6 +384,86 @@ class SliceLabel:
         label part.
         """
         return f"{instr[0]} {SliceLabel._sign2symbol[instr[2]]} {instr[1]}"
+
+
+
+
+class SliceReader:
+    """
+    read chainslicers from csv file.
+    usage: SliceReader.read_csv(csv_file)
+    """
+
+    @staticmethod
+    def _parse_col_type(df):
+        """
+        Determine whether column values should be list-ified.
+
+        Parameters:
+        df (pandas.DataFrame): DataFrame to analyze.
+
+        Returns:
+        dict: A dictionary where keys are column names and values are True or False indicating if the column should be list-ified.
+        """
+        listify = {}  # value can be True or False
+        # enclose value in list if the slice var type is bool or str
+        # do not listify if slice var type is str representing interval
+
+        for colname, vals in df.items():
+
+            if vals.dtype == 'bool':
+                listify[colname] = True
+                continue
+
+            vals = vals.dropna()
+
+            if vals.dtype == 'object':
+                if string_utils.is_interval(vals.iloc[0]):
+                    listify[colname] = False
+                elif type(vals.iloc[0]) is bool:
+                    listify[colname] = True
+                else:
+                    listify[colname] = True
+
+        return listify
+
+    @staticmethod
+    def read_csv(csv_file):
+        """
+        Convert CSV file to a list of chainslice instructions.
+
+        Parameters:
+        csv_file (str): Path to the CSV file.
+
+        Returns:
+        list: A list of chainslice instructions.
+        """
+        slicer_df = pd.read_csv(csv_file)
+        all_chainslicers = []
+
+        listify = SliceReader._parse_col_type(slicer_df)
+
+        for i, row in slicer_df.iterrows():
+            chainslicer = []
+            for k, v in row.items():
+                if pd.isna(v):
+                    continue
+
+                if listify[k]:
+                    slice_val = [v]
+                else:
+                    slice_val = v
+
+                slicer = [k, slice_val, '+']
+                chainslicer.append(slicer)
+            all_chainslicers.append(chainslicer)
+
+        labels = [SliceLabel.make(c) for c in all_chainslicers]
+        slicer_df['label'] = labels
+        display(slicer_df)
+
+
+        return all_chainslicers, slicer_df
 
 
 def group_datetime_objects_by_date(datetimes):

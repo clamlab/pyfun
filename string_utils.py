@@ -5,7 +5,7 @@ string manipulation
 def is_interval(s):
     """
     Check if a string represents an interval in the format "[lower, upper)", "(lower, upper]", etc.
-    
+
     An interval string should start with either '[' or '(' and end with either ']' or ')'.
     The bounds should be numeric values separated by a comma.
 
@@ -26,5 +26,6 @@ def is_interval(s):
         lower = float(bounds[0].strip())
         upper = float(bounds[1].strip())
         return True
-    except (ValueError, IndexError):
+    except (ValueError, IndexError, TypeError):
         return False
+
