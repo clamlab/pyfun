@@ -7,7 +7,7 @@ from collections import defaultdict
 import os
 
 from pyfun import string_utils
-from IPython.display import display
+from IPython.display import display #for prettier display e.g. in notebooks
 
 
 
@@ -53,6 +53,7 @@ def chainslice(df, slice_instructions):
     """ perform a series of slicing operations using slice_df
      slice_instructions: nested list, each element [col, [vals], polarity] """
 
+
     for [col, vals, polarity] in slice_instructions:
         df = slice(df, {col: vals}, polarity)
 
@@ -60,24 +61,37 @@ def chainslice(df, slice_instructions):
 
 def concat_df_dicts(df_dict, reset_index=True):
     """
-    concatenate a dictionary of dfs, in order of the keys, after sorting
-    keys are e.g. date strings
+    Concatenate a dictionary of dataframes in the order of sorted keys.
+    Filters out empty or all-NA dataframes to ensure compatibility with future pandas versions.
+
+    Args:
+        df_dict (dict): Dictionary of dataframes to concatenate, keyed by e.g. date strings.
+        reset_index (bool): Whether to reset the index in the final concatenated dataframe.
+
+    Returns:
+        pd.DataFrame: Concatenated dataframe, or an empty dataframe if no valid dataframes exist.
     """
 
     # Sort the keys in ascending order
     sorted_keys = sorted(df_dict.keys())
 
-    # Concatenate the dataframes in the correct order
-    list_of_dfs = [df_dict[key] for key in sorted_keys]
-    if len(list_of_dfs) > 0:
+    # Filter out empty or all-NA dataframes
+    list_of_dfs = [
+        df_dict[key]
+        for key in sorted_keys
+        if not df_dict[key].empty and not df_dict[key].isna().all(axis=None)
+    ]
+
+    # Check if there are valid dataframes to concatenate
+    if list_of_dfs:
         grand_df = pd.concat(list_of_dfs)
-    else:
-        return pd.DataFrame()
+        if reset_index:
+            grand_df = grand_df.reset_index(drop=True)
+        return grand_df
 
-    if reset_index:
-        grand_df = grand_df.reset_index(drop=True)
+    # Return an empty dataframe if no valid dataframes
+    return pd.DataFrame()
 
-    return grand_df
 
 
 def convert_dtype(df, col, dtype):
@@ -122,6 +136,22 @@ def euclid(df, xy_col1, xy_col2):
     C = np.linalg.norm(A-B,axis=1)
 
     return C
+
+
+def find_duplicates(df, columns):
+    """
+    Find duplicate rows in a DataFrame based on specified columns.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+        columns (list): List of column names to check for duplicates.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the duplicate rows.
+    """
+    duplicates = df[df.duplicated(subset=columns, keep=False)]
+    return duplicates
+
 
 def find_row_closest(search_row, analog_col, df_haystack, direction='bi'):
     """
@@ -211,7 +241,7 @@ def read_csv_or_create(csv_path,colnames):
     if it does not, create csv with colnames, and return df
     """
     if os.path.exists(csv_path):
-        print('Existing file loaded')
+        #print('Existing file loaded')
         return pd.read_csv(csv_path)
     else:
         print(csv_path, 'not found, creating new')
@@ -226,6 +256,8 @@ def slice_notnull(df, col):
 def slice(df, col_row_vals, polarity='+', print_counts=False):
     """
     Slices a pandas DataFrame based on given column values or ranges.
+
+
 
     Parameters:
         df (pd.DataFrame): The DataFrame to slice.
@@ -524,22 +556,35 @@ def merge_update(main_df, added_values, update_col, match_column='TrialNum'):
 
 def merge_within_day(input_dict, date_col='date'):
     """
-    Combine dataframes occurring on same date (day)
-    :param input_dict: Dict of dataframes where keys are datetime strings, and values are dataframes
-    :return: Dict where keys are dates, values are combined dataframes
+    Combine dataframes occurring on the same date (day).
+
+    Args:
+        input_dict (dict): Dict of dataframes where keys are datetime strings, and values are dataframes.
+        date_col (str): Name of the column to add, representing the shared date.
+
+    Returns:
+        dict: A dictionary where keys are dates (as strings), and values are combined dataframes.
     """
     grouped_datetimes = group_datetime_objects_by_date(input_dict.keys())
     combined_dataframes = {}
 
     for date, datetime_objects in grouped_datetimes.items():
-        # Concatenate the dataframes
-        combined_df = pd.concat([input_dict[dt] for dt in datetime_objects])
+        # Filter out empty or all-NA dataframes
+        valid_dfs = [
+            input_dict[dt]
+            for dt in datetime_objects
+            if not input_dict[dt].empty and not input_dict[dt].isna().all(axis=None)
+        ]
 
-        # Add a new column with the shared date
-        combined_df[date_col] = date.strftime('%Y-%m-%d')
+        # Only concatenate if there are valid dataframes
+        if valid_dfs:
+            combined_df = pd.concat(valid_dfs)
 
-        # Add the combined dataframe to the new dictionary
-        combined_dataframes[date.strftime('%Y-%m-%d')] = combined_df
+            # Add a new column with the shared date
+            combined_df[date_col] = date.strftime('%Y-%m-%d')
+
+            # Add the combined dataframe to the new dictionary
+            combined_dataframes[date.strftime('%Y-%m-%d')] = combined_df
 
     return combined_dataframes
 

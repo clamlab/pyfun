@@ -17,6 +17,9 @@ def calc_dt(pd_t2, pd_t1, output='millisecs'):
     """
     takes two pandas timestamps and returns the timedelta (t2 - t1)
     """
+    if pd_t2 is None or pd_t1 is None:
+        return None
+
     if output == 'millisecs':
         dt = (pd_t2 - pd_t1).total_seconds() * 1000
     elif output == 'secs':
@@ -94,16 +97,17 @@ def filter_by_date(data, target_date):
 
 
 def parse_time(time_str, formats = ["%H:%M:%S.%f", "%H:%M:%S"]):
+    # TODO due to some bonsai idiocy, sometimes the values are rounded off,
+    # and this throws an error in pd.to_datetime this is why two formats are provided
+
     parsed_time = pd.NaT
 
     for fmt in formats:
         parsed_time = pd.to_datetime(time_str, format=fmt, errors="coerce")
         if not pd.isna(parsed_time):
             break
-
-    if pd.isna(parsed_time):
-        raise ValueError(f"time data '{time_str}' does not match any of the formats: {formats}")
-
+        else:
+            return None
     return parsed_time
 
 
