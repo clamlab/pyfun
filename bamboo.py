@@ -9,45 +9,83 @@ import os
 from pyfun import string_utils
 from IPython.display import display #for prettier display e.g. in notebooks
 
+import pandas as pd
+import numpy as np
 
-
-def bin_col(df, col_to_bin, n_bins, bin_range=None, bins_from_range=False):
+def bin_col(df, col_to_bin, n_bins, bin_range=None, bins_from_range=False, single_values=[]):
     """
-    Bin values in a column within a specified range.
+    Bin values in a column within a specified range, allowing specified single values to have their own bins.
+    Creates bins in subranges, ensuring bins are as close to the desired size as possible,
+    while treating single values as special cases directly assigned their own bins.
 
     :param df: DataFrame with the data
     :param col_to_bin: column name to be binned
     :param n_bins: number of bins or array of bin edges
     :param bin_range: tuple (a, b) to specify the range of values to be binned
     :param bins_from_range: if True, the bins are derived from bin_range, otherwise from data
+    :param single_values: list of values to exclude from the range-based bins and give their own bins
     :return: DataFrame with an additional column for the binned values
     """
+    df = df.copy()  # Avoid modifying the original dataframe
 
-    df = df.copy()  # To avoid modifying the original dataframe
+    # Ensure single_values is sorted and unique
+    single_values = sorted(set(single_values))
 
-    ''' === this seems unnecessary ===
-    # If a bin_range is specified, set values outside of this range to NaN
+    # Determine the binning range
     if bin_range:
-        mask_outside_range = (df[col_to_bin] < bin_range[0]) | (df[col_to_bin] > bin_range[1])
-        df.loc[mask_outside_range, col_to_bin] = np.nan
-    '''
-
-    # Decide the bin edges
-    if bins_from_range and bin_range:
-        bin_edges = np.linspace(bin_range[0], bin_range[1], n_bins + 1)
+        range_start, range_end = bin_range
     else:
-        bin_edges = n_bins
+        range_start, range_end = df[col_to_bin].min(), df[col_to_bin].max()
+
+    # Filter single_values to include only those within the binning range
+    single_values = [v for v in single_values if range_start <= v <= range_end]
+
+    # Calculate desired bin size
+    total_range = range_end - range_start
+    desired_bin_size = total_range / n_bins
+
+    # Split the range into subranges separated by single_values
+    subranges = [range_start] + single_values + [range_end]
+
+    # Create bins for each subrange
+    bin_edges = []
+    for i in range(len(subranges) - 1):
+        start, end = subranges[i], subranges[i + 1]
+
+        if start in single_values:
+            # Single value gets its own bin
+            bin_edges.append(start)  # Start and end of the same value
+            bin_edges.append(start)
+        else:
+            # Create bins within the subrange
+            num_bins = max(1, round((end - start) / desired_bin_size))
+            subrange_bins = np.linspace(start, end, num_bins + 1)
+            bin_edges.extend(subrange_bins[:-1])  # Exclude the last edge to avoid duplication
+    bin_edges.append(range_end)  # Add the final edge
+
+    # Ensure unique and sorted bin edges
+    bin_edges = sorted(set(bin_edges))
 
     # Use pandas cut to create bins
-    df['bin'] = pd.cut(df[col_to_bin], bins=bin_edges)
+    df['bin'] = pd.cut(df[col_to_bin], bins=bin_edges, include_lowest=True)
 
-    # Extract midpoints from bin intervals
-    df[col_to_bin + '_bin'] = df['bin'].apply(lambda x: (x.left + x.right) / 2 if pd.notna(x) else np.nan)
+    # Assign midpoints for single values or regular bins
+    def calculate_midpoint(interval):
+        if interval.left == interval.right:  # Single value case
+            return interval.left
+        return (interval.left + interval.right) / 2
+
+    df[col_to_bin + '_bin'] = df['bin'].apply(
+        lambda x: calculate_midpoint(x) if pd.notna(x) else np.nan
+    )
 
     # Drop the 'bin' column
     df = df.drop('bin', axis=1)
 
     return df
+
+
+
 
 def chainslice(df, slice_instructions):
     """ perform a series of slicing operations using slice_df
@@ -234,6 +272,39 @@ def match_dfs(df1, df2, label1, label2, cols_to_match):
         df1.loc[i1, df1_col] = i2
         df2.loc[i2, df2_col] = i1
 
+
+def read_csv(filepath, dtype_dict, **kwargs):
+    """
+    Enhanced CSV reader when specifying dtype of columns
+
+    Use single dtype dictionary (`dtype_dict`) is used to specify column data types.
+    pandas original read_csv does this, but cannot interpret datatime dtypes
+    directly (has to use additional input parameter 'parse_dates'. This custom function
+    automatically handles this from dtype dict supplied
+
+    Parameters:
+        filepath (str): Path to the CSV file.
+        dtype_dict (dict): Dictionary mapping column names to data types.
+        **kwargs: Additional keyword arguments to pass to `pd.read_csv`.
+
+    Returns:
+        pd.DataFrame: DataFrame with the specified column types.
+    """
+    # Separate datetime columns from other columns
+    datetime_cols = [col for col, dtype in dtype_dict.items() if dtype == 'datetime64[ns]']
+    other_dtypes = {col: dtype for col, dtype in dtype_dict.items() if dtype != 'datetime64[ns]'}
+
+    # Read the CSV file
+    df = pd.read_csv(
+        filepath,
+        dtype=other_dtypes,  # Apply non-datetime types
+        parse_dates=datetime_cols,  # Parse datetime columns
+        **kwargs  # Pass any additional arguments to read_csv
+    )
+
+    return df
+
+
 def read_csv_or_create(csv_path,colnames):
     """
     check if fpath (pointing to csv) exists.
@@ -299,20 +370,25 @@ def slice(df, col_row_vals, polarity='+', print_counts=False):
     return df_small
 
 
-def slice_col_range(df, colname, range_str):
+import pandas as pd
+
+def slice_col_range(df, colname, range_str, dtype=None):
     """
     Slices a pandas DataFrame based on a column in a given range string.
+    Works for numeric and datetime columns, with optional dtype specification.
 
     Parameters:
         df (pd.DataFrame): The DataFrame to slice.
         colname (str): The name of the column to slice.
-        range_str (str): The range string, e.g., '(1,4)' or '[1,4]'.
+        range_str (str): The range string, e.g., '(1,4)', '[1,4]', or "[2024-10-24, 2024-11-24]".
+        dtype (str, optional): The type of the column ("numeric" or "datetime").
+                               If None, the function will infer the type.
 
     Returns:
         pd.DataFrame: The sliced DataFrame.
 
     Raises:
-        ValueError: If the range_str is not formatted correctly.
+        ValueError: If the range_str is not formatted correctly or dtype is invalid.
     """
 
     # Check the first and last characters for brackets
@@ -328,11 +404,35 @@ def slice_col_range(df, colname, range_str):
             'right' if right_inclusive else \
                 'neither'
 
-    # Extract the numeric values
+    # Helper function for type conversion
+    def convert_type(value, dtype):
+        if dtype == "numeric":
+            return float(value)
+        elif dtype == "datetime":
+            return pd.to_datetime(value)
+        else:
+            raise ValueError("Invalid dtype. Use 'numeric' or 'datetime'.")
+
+    # Extract the values from the range string
     try:
-        left_value, right_value = map(float, range_str[1:-1].split(','))
-    except ValueError:
-        raise ValueError("range_str should contain two numeric values separated by a comma.")
+        range_str_inner = range_str[1:-1].strip()  # Remove outer brackets
+        left_value, right_value = map(lambda x: x.strip().strip("'\""), range_str_inner.split(','))
+
+        # Determine the conversion type
+        if dtype is None:
+            if pd.api.types.is_numeric_dtype(df[colname]):
+                dtype = "numeric"
+            elif pd.api.types.is_datetime64_any_dtype(df[colname]):
+                dtype = "datetime"
+            else:
+                raise ValueError(f"Column '{colname}' must be numeric or datetime for slicing.")
+
+        # Convert values
+        left_value = convert_type(left_value, dtype)
+        right_value = convert_type(right_value, dtype)
+
+    except Exception as e:
+        raise ValueError(f"Error parsing range_str: {range_str}. Details: {e}")
 
     return df[df[colname].between(left_value, right_value, inclusive=inclusive)]
 
@@ -603,3 +703,4 @@ def swap_col_with_index(df, colname, name_of_index):
     df = df.set_index(colname)
 
     return df
+
