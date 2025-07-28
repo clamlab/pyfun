@@ -97,6 +97,69 @@ def chainslice(df, slice_instructions):
 
     return df
 
+
+import pandas as pd
+import numpy as np
+
+
+def chunk(df, mode, n_chunks=None, chunk_size=None):
+    """
+    Split a pandas DataFrame into chunks based on the specified mode.
+
+    Parameters:
+    df : pd.DataFrame
+        The DataFrame to split.
+    mode : str
+        Chunking mode. One of:
+        - 'n_chunks': Split into a given number of chunks.
+        - 'chunk_size_strict': Split into chunks of fixed size, last chunk may be smaller.
+        - 'chunk_size_rough': Split into chunks close to chunk_size, balanced.
+    n_chunks : int, optional
+        Number of chunks to split into (only for 'n_chunks' mode).
+    chunk_size : int, optional
+        Desired chunk size (only for 'chunk_size_strict' or 'chunk_size_rough').
+
+    Returns:
+    List[pd.DataFrame]
+        List of DataFrame chunks.
+
+    Raises:
+    ValueError:
+        If required parameters for the selected mode are missing or invalid.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("df must be a pandas DataFrame.")
+
+    total_rows = len(df)
+
+    if mode == "n_chunks":
+        if n_chunks is None or n_chunks <= 0:
+            raise ValueError("n_chunks must be a positive integer for mode 'n_chunks'.")
+        avg_chunk_size = round(total_rows / n_chunks)
+        chunks = []
+        for i in range(n_chunks):
+            start = i * avg_chunk_size
+            end = start + avg_chunk_size
+            chunks.append(df.iloc[start:end])
+        if end < total_rows:
+            chunks[-1] = pd.concat([chunks[-1], df.iloc[end:]])
+        return chunks
+
+    elif mode == "chunk_size_strict":
+        if chunk_size is None or chunk_size <= 0:
+            raise ValueError("chunk_size must be a positive integer for mode 'chunk_size_strict'.")
+        return [df.iloc[i:i + chunk_size] for i in range(0, total_rows, chunk_size)]
+
+    elif mode == "chunk_size_rough":
+        if chunk_size is None or chunk_size <= 0:
+            raise ValueError("chunk_size must be a positive integer for mode 'chunk_size_rough'.")
+        num_chunks = int(np.ceil(total_rows / chunk_size))
+        return np.array_split(df, num_chunks)
+
+    else:
+        raise ValueError("Invalid mode. Must be one of: 'n_chunks', 'chunk_size_strict', 'chunk_size_rough'.")
+
+
 def concat_df_dicts(df_dict, reset_index=True):
     """
     Concatenate a dictionary of dataframes in the order of sorted keys.
