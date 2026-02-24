@@ -16,7 +16,6 @@ def is_interval(s):
     bool: True if the string is a valid interval, False otherwise.
     """
 
-
     try:
         if s[0] not in '([' or s[-1] not in ')]':
             return False

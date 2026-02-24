@@ -2,15 +2,12 @@
 misc functions for wrangling pandas data
 """
 
-import pandas as pd, numpy as np
 from collections import defaultdict
 import os
 
-from pyfun import string_utils
-from IPython.display import display #for prettier display e.g. in notebooks
+from . import string_utils
 
-import pandas as pd
-import numpy as np
+
 
 def bin_col(df, col_to_bin, n_bins, bin_range=None, bins_from_range=False, single_values=[]):
     """
@@ -655,8 +652,6 @@ class SliceReader:
 
         labels = [SliceLabel.make(c) for c in all_chainslicers]
         slicer_df['label'] = labels
-        display(slicer_df)
-
 
         return all_chainslicers, slicer_df
 
